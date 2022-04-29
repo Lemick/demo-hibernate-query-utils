@@ -1,2 +1,2 @@
 # The next line can be uncommented if you want to apply the listener on all your tests automatically
-# org.springframework.test.context.TestExecutionListener=com.mickaelb.integration.spring.HibernateStatementCountTestListener
+# org.springframework.test.context.TestExecutionListener=com.mickaelb.integration.spring.HibernateAssertTestListener

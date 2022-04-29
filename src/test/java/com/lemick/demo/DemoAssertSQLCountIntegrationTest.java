@@ -1,11 +1,12 @@
 package com.lemick.demo;
 
+import com.lemick.demo.dto.BlogPostDTO;
 import com.lemick.demo.entity.BlogPost;
 import com.lemick.demo.entity.PostComment;
 import com.lemick.demo.repository.BlogPostRepository;
 import com.lemick.demo.repository.PostCommentRepository;
 import com.mickaelb.api.AssertHibernateSQLCount;
-import com.mickaelb.integration.spring.HibernateStatementCountTestListener;
+import com.mickaelb.integration.spring.HibernateAssertTestListener;
 import jakarta.annotation.PostConstruct;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
@@ -19,6 +20,7 @@ import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.boot.web.server.LocalServerPort;
 import org.springframework.test.annotation.Commit;
+import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.TestExecutionListeners;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -26,9 +28,10 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.springframework.boot.test.context.SpringBootTest.WebEnvironment.RANDOM_PORT;
 
 @SpringBootTest(webEnvironment = RANDOM_PORT)
-@TestExecutionListeners(listeners = HibernateStatementCountTestListener.class, mergeMode = TestExecutionListeners.MergeMode.MERGE_WITH_DEFAULTS)
+@DirtiesContext(classMode = DirtiesContext.ClassMode.BEFORE_CLASS)
+@TestExecutionListeners(listeners = HibernateAssertTestListener.class, mergeMode = TestExecutionListeners.MergeMode.MERGE_WITH_DEFAULTS)
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
-class DemoHibernateQueryUtilsApplicationTests {
+class DemoAssertSQLCountIntegrationTest {
 
     @LocalServerPort
     private int port;
@@ -37,15 +40,9 @@ class DemoHibernateQueryUtilsApplicationTests {
     private BlogPostRepository blogPostRepository;
 
     @Autowired
-    private PostCommentRepository postCommentRepository;
-
-    @Autowired
     private RestTemplateBuilder restTemplateBuilder;
 
     private TestRestTemplate restTemplate;
-
-    @PersistenceContext
-    EntityManager entityManager;
 
     @PostConstruct
     public void initialize() {
@@ -82,12 +79,12 @@ class DemoHibernateQueryUtilsApplicationTests {
     }
 
     /**
-     * Will Trigger 2 SELECT & DELETE
-     * One for the blogPost, and one for the child comments because of the cascade DELETE
+     * Will Trigger 1 SELECT &  2 DELETE
+     * No select for the blogPost because it's present in the cache, but one select for the child comments because of the cascade DELETE
      */
     @Test
     @Transactional
-    @AssertHibernateSQLCount(selects = 2, deletes = 2)
+    @AssertHibernateSQLCount(selects = 1, deletes = 2)
     void delete_one_entity() {
         blogPostRepository.deleteById(1L);
     }
@@ -97,8 +94,8 @@ class DemoHibernateQueryUtilsApplicationTests {
     void create_one_entity_from_endpoint() {
         BlogPost requestBody = new BlogPost("My new blog post");
 
-        BlogPost responseBody = restTemplate.postForObject("/blogPosts", requestBody, BlogPost.class);
+        BlogPostDTO responseBody = restTemplate.postForObject("/blogPosts", requestBody, BlogPostDTO.class);
 
-        assertEquals("My new blog post", responseBody.getTitle(), "The blog post created is returned");
+        assertEquals("My new blog post", responseBody.title(), "The blog post created is returned");
     }
 }
