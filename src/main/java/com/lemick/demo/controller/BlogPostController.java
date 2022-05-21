@@ -21,6 +21,13 @@ public class BlogPostController {
     @Autowired
     BlogPostRepository blogPostRepository;
 
+
+    @PostMapping
+    @Transactional
+    public BlogPost create(@Valid @RequestBody BlogPost blogPost) {
+        return blogPostRepository.save(blogPost);
+    }
+
     @GetMapping("/{" + BLOG_POST_ID + ":[0-9]+}")
     @Transactional
     public BlogPostDTO find(@PathVariable(name = BLOG_POST_ID) Long id) {
@@ -28,13 +35,9 @@ public class BlogPostController {
         if (blogPost.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND);
         }
+        // Here a new line :)
         return new BlogPostDTO(blogPost.get().getId(), blogPost.get().getTitle());
     }
 
-    @PostMapping
-    @Transactional
-    public BlogPost create(@Valid @RequestBody BlogPost blogPost) {
-        return blogPostRepository.save(blogPost);
-    }
 
 }

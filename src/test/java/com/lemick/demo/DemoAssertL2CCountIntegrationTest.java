@@ -78,11 +78,6 @@ class DemoAssertL2CCountIntegrationTest {
             blogPostRepository.findById(1L); // 1 HIT
         });
     }
-    @Test
-    @AssertHibernateL2CCount(hits = 1)
-    void _read_post_from_cache_with_http() {
-        restTemplate.getForObject("/blogPosts/1", BlogPost.class); // 1 HIT
-    }
 
     void doInTransaction(Runnable runnable) {
         transactionTemplate.execute(status -> {
