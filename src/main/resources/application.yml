@@ -13,5 +13,5 @@ spring:
         session_factory.statement_inspector: com.mickaelb.integration.hibernate.HibernateStatementInspector
 logging:
   level:
-    org.hibernate: trace
+    org.hibernate: info
 

@@ -5,6 +5,7 @@ import com.lemick.demo.entity.BlogPost;
 import com.lemick.demo.entity.PostComment;
 import com.lemick.demo.repository.BlogPostRepository;
 import com.mickaelb.api.AssertHibernateSQLCount;
+import com.mickaelb.api.QueryAssertions;
 import com.mickaelb.integration.spring.HibernateAssertTestListener;
 import jakarta.annotation.PostConstruct;
 import org.junit.jupiter.api.MethodOrderer;
@@ -16,11 +17,14 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.boot.web.client.RestTemplateBuilder;
-import org.springframework.test.annotation.Commit;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.TestExecutionListeners;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
+import java.util.Map;
+
+import static com.mickaelb.api.StatementType.*;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.springframework.boot.test.context.SpringBootTest.WebEnvironment.RANDOM_PORT;
 
@@ -39,6 +43,9 @@ class DemoAssertSQLCountIntegrationTest {
     @Autowired
     private RestTemplateBuilder restTemplateBuilder;
 
+    @Autowired
+    TransactionTemplate transactionTemplate;
+
     private TestRestTemplate restTemplate;
 
     @PostConstruct
@@ -48,8 +55,6 @@ class DemoAssertSQLCountIntegrationTest {
     }
 
     @Test
-    @Transactional
-    @Commit
     @Order(0)
     @AssertHibernateSQLCount(inserts = 6)
     void create_three_blog_posts() {
@@ -68,7 +73,7 @@ class DemoAssertSQLCountIntegrationTest {
 
     @Test
     @Transactional
-    @AssertHibernateSQLCount(selects = 1)  // <= This will warn you if you're triggering N+1 SELECT
+    @AssertHibernateSQLCount(selects = 1) // <= This will warn you if you're triggering N+1 SELECT
     void fetch_post_and_comments_with_one_select() {
         blogPostRepository.findBlogPostWithComments().forEach(blogPost ->
                 assertEquals(1, blogPost.getPostComments().size(), "all blog posts have one comment")
@@ -94,5 +99,47 @@ class DemoAssertSQLCountIntegrationTest {
         BlogPostDTO responseBody = restTemplate.postForObject("/blogPosts", requestBody, BlogPostDTO.class);
 
         assertEquals("My new blog post", responseBody.title(), "The blog post created is returned");
+    }
+
+    /**
+     * Demonstrate the programmatic API
+     */
+    @Test
+    void multiple_assertions_using_programmatic_api() {
+        QueryAssertions.assertInsertCount(2, () -> {
+            BlogPost post_1 = new BlogPost("Blog post 1");
+            post_1.addComment(new PostComment("Good article"));
+            blogPostRepository.save(post_1);
+        });
+
+        QueryAssertions.assertSelectCount(1, () -> blogPostRepository.findById(1L));
+
+        QueryAssertions.assertUpdateCount(1, () -> {
+            var blogPost = blogPostRepository.findById(1L).orElseThrow();
+            blogPost.setTitle("New title");
+            blogPostRepository.save(blogPost);
+        });
+
+        // Cascade delete the Blog post and the associated comment
+        QueryAssertions.assertDeleteCount(2, () -> blogPostRepository.deleteById(1L));
+    }
+
+    /**
+     * Same but with the multiple statements API
+     * (the cascade DELETE triggers one more select)
+     */
+    @Test
+    void multiple_assertions_using_programmatic_api_all_statements() {
+        QueryAssertions.assertStatementCount(Map.of(INSERT, 2, SELECT, 2, UPDATE, 1, DELETE, 2), () -> {
+            BlogPost post_1 = new BlogPost("Blog post 1");
+            post_1.addComment(new PostComment("Good article"));
+            blogPostRepository.save(post_1);
+
+            var blogPost = blogPostRepository.findById(post_1.getId()).orElseThrow();
+            blogPost.setTitle("New title");
+            blogPostRepository.save(blogPost);
+
+            blogPostRepository.deleteById(post_1.getId());
+        });
     }
 }
